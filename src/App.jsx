@@ -1,122 +1,92 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useMutation } from "convex/react";
+import { api } from "../convex/_generated/api";
+import { useState } from "react";
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const saveImage = useMutation(api.files.saveImage);
+
+  const [imageUrl, setImageUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  async function handleUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+
+    try {
+      // Get upload URL from Convex
+      const postUrl = await generateUploadUrl();
+
+      // Upload image
+      const result = await fetch(postUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": file.type,
+        },
+        body: file,
+      });
+
+      const { storageId } = await result.json();
+
+      // Save metadata
+      const url = await saveImage({
+  imageId: storageId,
+});
+
+setImageUrl(url);
+    } catch (err) {
+      console.error(err);
+      alert("Upload failed");
+    }
+
+    setUploading(false);
+  }
+
+  function copyUrl() {
+    navigator.clipboard.writeText(imageUrl);
+    alert("Image URL copied!");
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div
+      style={{
+        maxWidth: 600,
+        margin: "40px auto",
+        textAlign: "center",
+        fontFamily: "Arial",
+      }}
+    >
+      <h1>Laundry Image Upload</h1>
 
-      <div className="ticks"></div>
+      <input
+        type="file"
+        accept="image/*"
+        onChange={handleUpload}
+      />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      <br />
+      <br />
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
-}
+      {uploading && <p>Uploading...</p>}
 
-export default App
+      {imageUrl && (
+        <>
+          <img
+            src={imageUrl}
+            alt="Uploaded"
+            width="300"
+            style={{ borderRadius: "10px" }}
+          />
+
+          <p>{imageUrl}</p>
+
+          <button onClick={copyUrl}>
+            Copy URL
+          </button>
+        </>
+      )}
+    </div>
+  );
+} 
