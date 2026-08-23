@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as analyzeImage from "../analyzeImage.js";
 import type * as files from "../files.js";
 
 import type {
@@ -17,6 +18,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  analyzeImage: typeof analyzeImage;
   files: typeof files;
 }>;
 

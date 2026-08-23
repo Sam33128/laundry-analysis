@@ -394,8 +394,7 @@ relative to `convex/`):
 
 ```tsx
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../convex/_generated/api";
-
+import { api } from "../../convex/_generated/api";
 function Tasks() {
   const tasks = useQuery(api.tasks.list);
   const create = useMutation(api.tasks.create);

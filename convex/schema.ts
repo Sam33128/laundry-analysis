@@ -6,5 +6,20 @@ export default defineSchema({
     imageId: v.id("_storage"),
     imageUrl: v.string(),
     uploadedAt: v.number(),
+
+    analyzed: v.boolean(),
+
+    dryingTime: v.optional(v.number()),
+
+    totalGarments: v.optional(v.number()),
+
+    garmentsList: v.optional(
+      v.array(
+        v.object({
+          type: v.string(),
+          fabric: v.string(),
+        })
+      )
+    ),
   }),
 }); 
