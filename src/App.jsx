@@ -6,20 +6,17 @@ export default function App() {
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const saveImage = useMutation(api.files.saveImage);
   const analyzeImage = useAction(api.analyzeImage.analyzeImage);
-  
+
   const [imageUrl, setImageUrl] = useState("");
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState("");
-
   const [result, setResult] = useState(null);
 
-  // 🔹 user inputs
   const [moisture, setMoisture] = useState("medium");
   const [sun, setSun] = useState("medium");
   const [placement, setPlacement] = useState("outdoor_sun");
 
-  // ---------------- UPLOAD ----------------
   async function handleUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -37,7 +34,6 @@ export default function App() {
       });
 
       const { storageId } = await uploadRes.json();
-
       const url = await saveImage({ imageId: storageId });
 
       setImageUrl(url);
@@ -50,7 +46,6 @@ export default function App() {
     setUploading(false);
   }
 
-  // ---------------- ANALYZE ----------------
   async function handleAnalyze() {
     if (!imageUrl) {
       setError("Upload image first");
@@ -61,19 +56,14 @@ export default function App() {
     setError("");
 
     try {
-      const payload = {
+      const res = await analyzeImage({
         imageUrl,
         moisture,
         sun,
         placement,
-      };
+      });
 
-      const res = await analyzeImage(payload);
-
-      if (res.error) {
-        setError(res.error);
-      }
-
+      if (res.error) setError(res.error);
       setResult(res);
     } catch (err) {
       console.error(err);
@@ -83,20 +73,38 @@ export default function App() {
     setAnalyzing(false);
   }
 
-  // ---------------- UI ----------------
   return (
-    <div style={{ maxWidth: 600, margin: "40px auto", textAlign: "center" }}>
-      <h1>Laundry Analyzer</h1>
+    <div
+      style={{
+        maxWidth: 700,
+        margin: "40px auto",
+        padding: "20px",
+        background: "#111",
+        borderRadius: "12px",
+        color: "#fff",
+        fontFamily: "sans-serif",
+      }}
+    >
+      <h1 style={{ marginBottom: 20 }}>Laundry Analyzer 🌤️</h1>
 
+      {/* Upload */}
       <input type="file" accept="image/*" onChange={handleUpload} />
 
       <br /><br />
 
-      {/* -------- USER INPUTS -------- */}
-      <div style={{ textAlign: "left", marginBottom: 20 }}>
+      {/* Conditions */}
+      <div
+        style={{
+          background: "#1c1c1c",
+          padding: "15px",
+          borderRadius: "10px",
+          marginBottom: "20px",
+          textAlign: "left",
+        }}
+      >
         <h3>Conditions</h3>
 
-        <label>Moisture:</label>
+        <label>Moisture:</label><br />
         <select value={moisture} onChange={(e) => setMoisture(e.target.value)}>
           <option value="low">Low</option>
           <option value="medium">Medium</option>
@@ -105,7 +113,7 @@ export default function App() {
 
         <br /><br />
 
-        <label>Sun Exposure:</label>
+        <label>Sun Exposure:</label><br />
         <select value={sun} onChange={(e) => setSun(e.target.value)}>
           <option value="low">Low</option>
           <option value="medium">Medium</option>
@@ -114,7 +122,7 @@ export default function App() {
 
         <br /><br />
 
-        <label>Placement:</label>
+        <label>Placement:</label><br />
         <select value={placement} onChange={(e) => setPlacement(e.target.value)}>
           <option value="indoor_closed">Indoor Closed</option>
           <option value="indoor_ventilated">Indoor Ventilated</option>
@@ -123,29 +131,53 @@ export default function App() {
         </select>
       </div>
 
-      {/* -------- STATES -------- */}
+      {/* States */}
       {uploading && <p>Uploading...</p>}
       {analyzing && <p>Analyzing...</p>}
       {error && <p style={{ color: "red" }}>{error}</p>}
 
-      {/* -------- IMAGE -------- */}
+      {/* Image + Button */}
       {imageUrl && (
         <>
-          <img src={imageUrl} width="300" style={{ borderRadius: 10 }} />
-          <p>{imageUrl}</p>
+          <img
+            src={imageUrl}
+            width="300"
+            style={{ borderRadius: 10, marginBottom: 10 }}
+          />
+          <p style={{ fontSize: "12px", color: "#aaa" }}>{imageUrl}</p>
 
-          <button onClick={handleAnalyze} disabled={analyzing}>
-            Analyze
+          <button
+            onClick={handleAnalyze}
+            disabled={analyzing}
+            style={{
+              padding: "10px 20px",
+              backgroundColor: analyzing ? "#666" : "#4CAF50",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: analyzing ? "not-allowed" : "pointer",
+              marginTop: "10px",
+            }}
+          >
+            {analyzing ? "Analyzing..." : "Analyze Image"}
           </button>
         </>
       )}
 
-      {/* -------- RESULT -------- */}
+      {/* Result */}
       {result && !result.error && (
-        <div style={{ marginTop: 20, textAlign: "left" }}>
+        <div
+          style={{
+            marginTop: 25,
+            background: "#1c1c1c",
+            padding: "15px",
+            borderRadius: "10px",
+            textAlign: "left",
+          }}
+        >
           <h3>Result</h3>
 
-          <p style={{ fontSize: 18, fontWeight: "bold", color: "green" }}>
+          <p style={{ fontSize: 18, fontWeight: "bold", color: "#4CAF50" }}>
             Estimated Drying Time: {result.drying_time_minutes} minutes
           </p>
 
@@ -159,7 +191,14 @@ export default function App() {
           ))}
 
           {result.weather && (
-            <div style={{ marginTop: 15, padding: 10, border: "1px solid #ccc" }}>
+            <div
+              style={{
+                marginTop: 15,
+                padding: 10,
+                border: "1px solid #333",
+                borderRadius: "6px",
+              }}
+            >
               <h4>Weather</h4>
               <p><b>Temp:</b> {result.weather.temperature}°C</p>
               <p><b>Humidity:</b> {result.weather.humidity}%</p>
@@ -167,7 +206,6 @@ export default function App() {
             </div>
           )}
 
-          {/* DEBUG */}
           <details>
             <summary>Raw JSON</summary>
             <pre>{JSON.stringify(result, null, 2)}</pre>
