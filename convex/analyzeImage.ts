@@ -16,7 +16,7 @@ async function getWeather(lat: number, lon: number) {
   };
 }
 
-// 🔥 WEATHER FACTOR (safe)
+// 🔥 WEATHER FACTOR
 function weatherFactor(temp: number, humidity: number, wind: number) {
   temp = Math.max(temp, 5);
   humidity = Math.min(Math.max(humidity, 10), 100);
@@ -90,13 +90,13 @@ export const analyzeImage = action({
     moisture: v.string(),
     sun: v.string(),
     placement: v.string(),
-    lat: v.number(),   // ✅ FIX
-    lon: v.number(),   // ✅ FIX
+    lat: v.number(),
+    lon: v.number(),
   },
 
   handler: async (ctx, args) => {
     try {
-      // 🔴 CALL MODEL
+      // 🔴 CALL NVIDIA
       const res = await fetch(
         "https://integrate.api.nvidia.com/v1/chat/completions",
         {
@@ -115,8 +115,12 @@ export const analyzeImage = action({
                 content: [
                   {
                     type: "text",
-                    text: `Return ONLY valid JSON:
+                    text: `Return ONLY valid JSON.
+NO explanation.
+NO text.
+NO markdown.
 
+Schema:
 {
   "total_garments": number,
   "garments": [
@@ -151,21 +155,36 @@ export const analyzeImage = action({
 
       if (!raw) return { error: "No response from model" };
 
-      // 🔴 SIMPLE + RELIABLE CLEANING
-      const cleaned = raw.replace(/```json|```/g, "").trim();
+      // 🔥 STRONG JSON EXTRACTION
+      const cleaned = raw
+        .replace(/```json/g, "")
+        .replace(/```/g, "")
+        .trim();
+
+      const match = cleaned.match(/\{[\s\S]*\}/);
+
+      if (!match) {
+        return {
+          error: "No JSON found",
+          raw: cleaned,
+        };
+      }
 
       let parsed;
       try {
-        parsed = JSON.parse(cleaned);
+        parsed = JSON.parse(match[0]);
       } catch {
-        return { error: "Invalid JSON", raw: cleaned };
+        return {
+          error: "Invalid JSON",
+          raw: cleaned,
+        };
       }
 
       if (!Array.isArray(parsed.garments)) {
         return { error: "Invalid structure", parsed };
       }
 
-      // 🌦️ REAL WEATHER (user location)
+      // 🌦️ WEATHER (REAL LOCATION)
       const weather = await getWeather(args.lat, args.lon);
 
       // 🔥 TOTAL TIME
