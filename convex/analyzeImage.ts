@@ -10,10 +10,24 @@ async function getWeather(lat: number, lon: number) {
   const data = await res.json();
 
   return {
-    temperature: data.current.temperature_2m,
-    humidity: data.current.relative_humidity_2m,
-    wind_speed: data.current.wind_speed_10m,
+    temperature: data.current?.temperature_2m ?? 25,
+    humidity: data.current?.relative_humidity_2m ?? 50,
+    wind_speed: data.current?.wind_speed_10m ?? 1,
   };
+}
+
+// 🔥 WEATHER FACTOR (safe)
+function weatherFactor(temp: number, humidity: number, wind: number) {
+  temp = Math.max(temp, 5);
+  humidity = Math.min(Math.max(humidity, 10), 100);
+  wind = Math.max(wind, 0);
+
+  let factor = 1;
+  factor *= humidity / 50;
+  factor *= 30 / temp;
+  factor *= 1 / (1 + wind * 0.1);
+
+  return factor;
 }
 
 // 🔥 DRYING LOGIC
@@ -58,18 +72,6 @@ function getDryingTime(data: any) {
     outdoor_sun: 0.8,
   };
 
-  function weatherFactor(temp: number, humidity: number, wind: number) {
-    temp = Math.max(temp, 5);
-    humidity = Math.min(Math.max(humidity, 10), 100);
-
-    let factor = 1;
-    factor *= humidity / 50;
-    factor *= 30 / temp;
-    factor *= 1 / (1 + wind * 0.1);
-
-    return factor;
-  }
-
   return (
     baseTime *
     (fabricFactor[data.fabric] || 1) *
@@ -88,10 +90,13 @@ export const analyzeImage = action({
     moisture: v.string(),
     sun: v.string(),
     placement: v.string(),
+    lat: v.number(),   // ✅ FIX
+    lon: v.number(),   // ✅ FIX
   },
 
   handler: async (ctx, args) => {
     try {
+      // 🔴 CALL MODEL
       const res = await fetch(
         "https://integrate.api.nvidia.com/v1/chat/completions",
         {
@@ -110,7 +115,7 @@ export const analyzeImage = action({
                 content: [
                   {
                     type: "text",
-                    text: `Return ONLY valid JSON.
+                    text: `Return ONLY valid JSON:
 
 {
   "total_garments": number,
@@ -144,60 +149,39 @@ export const analyzeImage = action({
       const data = await res.json();
       const raw = data?.choices?.[0]?.message?.content;
 
-      if (!raw) {
-        return { error: "No response from model" };
-      }
+      if (!raw) return { error: "No response from model" };
 
-      // 🔴 CLEAN + EXTRACT JSON
-      const cleaned = raw
-        .replace(/```json/g, "")
-        .replace(/```/g, "")
-        .trim();
-
-      const match = cleaned.match(/\{[\s\S]*\}/);
-
-      if (!match) {
-        return {
-          error: "No JSON found",
-          raw: cleaned,
-        };
-      }
+      // 🔴 SIMPLE + RELIABLE CLEANING
+      const cleaned = raw.replace(/```json|```/g, "").trim();
 
       let parsed;
       try {
-        parsed = JSON.parse(match[0]);
+        parsed = JSON.parse(cleaned);
       } catch {
-        return {
-          error: "Invalid JSON",
-          raw: cleaned,
-        };
+        return { error: "Invalid JSON", raw: cleaned };
       }
 
       if (!Array.isArray(parsed.garments)) {
         return { error: "Invalid structure", parsed };
       }
 
-      // 🌦️ WEATHER (Bhubaneswar default)
-      const weather = await getWeather(20.2961, 85.8245);
+      // 🌦️ REAL WEATHER (user location)
+      const weather = await getWeather(args.lat, args.lon);
 
-      // 🔥 CALCULATE TOTAL DRYING TIME
+      // 🔥 TOTAL TIME
       let totalTime = 0;
 
       for (const g of parsed.garments) {
-        const features = {
+        totalTime += getDryingTime({
           fabric: g.fabric || "unknown",
           type: g.type || "unknown",
-
           temperature: weather.temperature,
           humidity: weather.humidity,
           wind_speed: weather.wind_speed,
-
           moisture: args.moisture,
           sun: args.sun,
           placement: args.placement,
-        };
-
-        totalTime += getDryingTime(features);
+        });
       }
 
       return {
@@ -205,7 +189,6 @@ export const analyzeImage = action({
         weather,
         drying_time_minutes: Math.round(totalTime),
       };
-
     } catch (err) {
       return {
         error: "API call failed",

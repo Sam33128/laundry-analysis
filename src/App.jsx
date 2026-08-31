@@ -47,31 +47,42 @@ export default function App() {
   }
 
   async function handleAnalyze() {
-    if (!imageUrl) {
-      setError("Upload image first");
-      return;
-    }
-
-    setAnalyzing(true);
-    setError("");
-
-    try {
-      const res = await analyzeImage({
-        imageUrl,
-        moisture,
-        sun,
-        placement,
-      });
-
-      if (res.error) setError(res.error);
-      setResult(res);
-    } catch (err) {
-      console.error(err);
-      setError("Analysis failed");
-    }
-
-    setAnalyzing(false);
+  if (!imageUrl) {
+    setError("Upload image first");
+    return;
   }
+
+  setAnalyzing(true);
+  setError("");
+
+  try {
+    // ✅ GET USER LOCATION
+    const position = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject);
+    });
+
+    const lat = position.coords.latitude;
+    const lon = position.coords.longitude;
+
+    // ✅ SEND TO BACKEND
+    const res = await analyzeImage({
+      imageUrl,
+      moisture,
+      sun,
+      placement,
+      lat,
+      lon,
+    });
+
+    if (res.error) setError(res.error);
+    setResult(res);
+  } catch (err) {
+    console.error(err);
+    setError("Location permission or analysis failed");
+  }
+
+  setAnalyzing(false);
+}
 
   return (
     <div
