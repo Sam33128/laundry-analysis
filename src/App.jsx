@@ -1,11 +1,13 @@
 import { useMutation, useAction } from "convex/react";
 import { api } from "../convex/_generated/api";
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 export default function App() {
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const saveImage = useMutation(api.files.saveImage);
   const analyzeImage = useAction(api.analyzeImage.analyzeImage);
+
+  const fileInputRef = useRef(null);
 
   const [imageUrl, setImageUrl] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -20,6 +22,16 @@ export default function App() {
   async function handleUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
+
+    // ✅ PRE-UPLOAD WARNING POPUP
+    const proceed = window.confirm(
+      "📸 For the best AI accuracy, please ensure your photo is clear and taken in a well-lit environment.\n\nDo you want to continue with this photo?"
+    );
+    
+    if (!proceed) {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
 
     setUploading(true);
     setError("");
@@ -47,42 +59,50 @@ export default function App() {
   }
 
   async function handleAnalyze() {
-  if (!imageUrl) {
-    setError("Upload image first");
-    return;
+    if (!imageUrl) {
+      setError("Upload image first");
+      return;
+    }
+
+    setAnalyzing(true);
+    setError("");
+
+    try {
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject);
+      });
+
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+
+      const res = await analyzeImage({
+        imageUrl,
+        moisture,
+        sun,
+        placement,
+        lat,
+        lon,
+      });
+
+      if (res.error) setError(res.error);
+      setResult(res);
+    } catch (err) {
+      console.error(err);
+      setError("Location permission or analysis failed");
+    }
+
+    setAnalyzing(false);
   }
 
-  setAnalyzing(true);
-  setError("");
-
-  try {
-    // ✅ GET USER LOCATION
-    const position = await new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject);
-    });
-
-    const lat = position.coords.latitude;
-    const lon = position.coords.longitude;
-
-    // ✅ SEND TO BACKEND
-    const res = await analyzeImage({
-      imageUrl,
-      moisture,
-      sun,
-      placement,
-      lat,
-      lon,
-    });
-
-    if (res.error) setError(res.error);
-    setResult(res);
-  } catch (err) {
-    console.error(err);
-    setError("Location permission or analysis failed");
+  // ✅ RESET FUNCTION
+  function handleReset() {
+    setImageUrl("");
+    setResult(null);
+    setError("");
+    setUploading(false);
+    setAnalyzing(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
-
-  setAnalyzing(false);
-}
 
   return (
     <div
@@ -98,8 +118,13 @@ export default function App() {
     >
       <h1 style={{ marginBottom: 20 }}>Laundry Analyzer 🌤️</h1>
 
-      {/* Upload */}
-      <input type="file" accept="image/*" onChange={handleUpload} />
+      {/* Upload with Ref attached */}
+      <input 
+        type="file" 
+        accept="image/*" 
+        onChange={handleUpload} 
+        ref={fileInputRef} 
+      />
 
       <br /><br />
 
@@ -147,31 +172,47 @@ export default function App() {
       {analyzing && <p>Analyzing...</p>}
       {error && <p style={{ color: "red" }}>{error}</p>}
 
-      {/* Image + Button */}
+      {/* Image + Buttons */}
       {imageUrl && (
         <>
           <img
             src={imageUrl}
             width="300"
-            style={{ borderRadius: 10, marginBottom: 10 }}
+            style={{ borderRadius: 10, marginBottom: 10, display: "block" }}
           />
-          <p style={{ fontSize: "12px", color: "#aaa" }}>{imageUrl}</p>
+          
+          <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+            <button
+              onClick={handleAnalyze}
+              disabled={analyzing}
+              style={{
+                padding: "10px 20px",
+                backgroundColor: analyzing ? "#666" : "#4CAF50",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                cursor: analyzing ? "not-allowed" : "pointer",
+              }}
+            >
+              {analyzing ? "Analyzing..." : "Analyze Image"}
+            </button>
 
-          <button
-            onClick={handleAnalyze}
-            disabled={analyzing}
-            style={{
-              padding: "10px 20px",
-              backgroundColor: analyzing ? "#666" : "#4CAF50",
-              color: "white",
-              border: "none",
-              borderRadius: "6px",
-              cursor: analyzing ? "not-allowed" : "pointer",
-              marginTop: "10px",
-            }}
-          >
-            {analyzing ? "Analyzing..." : "Analyze Image"}
-          </button>
+            {/* ✅ NEW RESET BUTTON */}
+            <button
+              onClick={handleReset}
+              disabled={analyzing}
+              style={{
+                padding: "10px 20px",
+                backgroundColor: analyzing ? "#666" : "#f44336",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                cursor: analyzing ? "not-allowed" : "pointer",
+              }}
+            >
+              Start Over
+            </button>
+          </div>
         </>
       )}
 
@@ -198,6 +239,7 @@ export default function App() {
             <div key={i}>
               <p>Type: {g.type}</p>
               <p>Fabric: {g.fabric}</p>
+              {g.color && <p>Color: {g.color}</p>}
             </div>
           ))}
 
@@ -213,13 +255,15 @@ export default function App() {
               <h4>Weather</h4>
               <p><b>Temp:</b> {result.weather.temperature}°C</p>
               <p><b>Humidity:</b> {result.weather.humidity}%</p>
-              <p><b>Wind:</b> {result.weather.wind_speed}</p>
+              <p><b>Wind:</b> {result.weather.wind_speed} km/h</p>
             </div>
           )}
 
-          <details>
-            <summary>Raw JSON</summary>
-            <pre>{JSON.stringify(result, null, 2)}</pre>
+          <details style={{ marginTop: "15px" }}>
+            <summary style={{ cursor: "pointer", color: "#aaa" }}>Raw JSON</summary>
+            <pre style={{ color: "#aaa", overflowX: "auto" }}>
+              {JSON.stringify(result, null, 2)}
+            </pre>
           </details>
         </div>
       )}

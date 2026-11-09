@@ -10,6 +10,7 @@
 
 import type * as analyzeImage from "../analyzeImage.js";
 import type * as files from "../files.js";
+import type * as sessions from "../sessions.js";
 
 import type {
   ApiFromModules,
@@ -20,6 +21,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   analyzeImage: typeof analyzeImage;
   files: typeof files;
+  sessions: typeof sessions;
 }>;
 
 /**

@@ -38,6 +38,7 @@ export const markAnalyzed = mutation({
       v.object({
         type: v.string(),
         fabric: v.string(),
+        color: v.optional(v.string()), // ✅ Added color as an optional string
       })
     ),
   },
@@ -48,6 +49,7 @@ export const markAnalyzed = mutation({
       dryingTime: args.dryingTime,
       totalGarments: args.totalGarments,
       garmentsList: args.garmentsList,
+      
     });
   },
 });
