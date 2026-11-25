@@ -3,8 +3,9 @@
     "name": "laundry-mobile",
     "slug": "laundry-mobile",
     "version": "1.0.0",
+    "sdkVersion": "58.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/hero.png",
     "scheme": "laundrymobile",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -13,27 +14,27 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#090d16",
-        "foregroundImage": "./assets/images/icon.png"
+        "foregroundImage": "./assets/hero.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.sam123yam.laundrymobile"
+      "package": "com.sam123yam.laundrymobile",
+      "enableMinifyInReleaseBuilds": false
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/hero.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#ffffff",
-          "image": "./assets/images/icon.png",
+          "backgroundColor": "#090d16",
+          "image": "./assets/hero.png",
           "imageWidth": 200
         }
       ],
       "expo-secure-store",
-      "@clerk/expo",
       [
         "expo-image-picker",
         {
@@ -46,11 +47,11 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Allow the app to use your location to fetch local weather data for accurate drying times."
         }
-      ]
+      ],
+      "expo-image"
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "typedRoutes": true
     },
     "extra": {
       "router": {},

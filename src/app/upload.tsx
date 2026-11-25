@@ -10,16 +10,28 @@ import {
   ActivityIndicator,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from "expo-file-system/legacy";
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from "expo-image-manipulator";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
+import * as Notifications from "expo-notifications";
 import { useState, useEffect, useRef } from "react";
 import { useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Picker } from "@react-native-picker/picker";
 import { useUser, useAuth } from "@clerk/expo";
 import { Redirect, useRouter } from "expo-router";
+
+// Tell the OS to show the alert and play the default notification sound
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 const LAUNDRY_FACTS = [
   "👕 The first electric washing machine, 'The Thor', was introduced in 1908.",
@@ -112,7 +124,7 @@ export default function UploadModal() {
     const uploadUrl = await generateUploadUrl();
     const uploadRes = await FileSystem.uploadAsync(uploadUrl, image, {
       httpMethod: "POST",
-      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      uploadType: 0 as any,
       headers: { "Content-Type": "image/jpeg" },
     });
     if (uploadRes.status < 200 || uploadRes.status >= 300) throw new Error(`Upload failed`);
@@ -184,29 +196,44 @@ export default function UploadModal() {
   };
 
   const handleStartSession = async () => {
-    if (!result) return;
+    if (!result || !user?.id) return;
     
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     
-    await createSession({
-      imageUrl: result.imageUrl,
-      estimatedMinutes: result.drying_time_minutes,
-      garments: result.garments,
-      weatherContext: result.weather,
-    });
+    try {
+      // 1. Save to database
+      await createSession({
+        userId: user.id,
+        imageUrl: result.imageUrl,
+        estimatedMinutes: result.drying_time_minutes,
+        garments: result.garments,
+        weatherContext: result.weather,
+      });
 
-    Alert.alert("Session Started", "Timer has begun. Leave the app open to hear the chime!", [
-      { 
-        text: "OK", 
-        onPress: () => {
-          setTimeout(() => {
-            Alert.alert("🧺 Laundry is Dry!", "Your clothes have finished their estimated drying time.");
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          }, result.drying_time_minutes * 60000);
-          router.back(); 
+      // 2. Request permission & schedule the native background alarm
+      await Notifications.requestPermissionsAsync();
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Laundry is Ready! 🧺",
+          body: "Your clothes are done drying. Time to collect them!",
+          sound: true, 
+        },
+        trigger: { 
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: result.drying_time_minutes * 60 
+        },
+      });
+
+      // 3. Notify the user and navigate back
+      Alert.alert("Session Started", "Timer has begun! Your phone will notify you when it's ready, even if you close the app.", [
+        { 
+          text: "OK", 
+          onPress: () => router.back()
         } 
-      } 
-    ]);
+      ]);
+    } catch (err: any) {
+      Alert.alert("Session Failed", err?.message || "Could not save session. Please check your connection.");
+    }
   };
 
   const handleReset = () => {

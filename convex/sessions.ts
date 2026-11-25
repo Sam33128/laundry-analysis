@@ -3,6 +3,7 @@ import { v } from "convex/values";
 
 export const createSession = mutation({
   args: {
+    userId: v.string(), // Explicitly pass Clerk ID from frontend
     imageUrl: v.string(),
     estimatedMinutes: v.number(),
     garments: v.array(
@@ -15,18 +16,12 @@ export const createSession = mutation({
     weatherContext: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    
-    // HARD BLOCK: Stop the creation if Clerk hasn't verified the user
-    if (!identity) {
+    if (!args.userId) {
       throw new Error("Authentication required to create a session.");
     }
 
-    // Use the strict, unique Clerk User ID
-    const userId = identity.subject;
-
     return await ctx.db.insert("sessions", {
-      userId,
+      userId: args.userId,
       imageUrl: args.imageUrl,
       estimatedMinutes: args.estimatedMinutes,
       garments: args.garments,
@@ -38,19 +33,17 @@ export const createSession = mutation({
 });
 
 export const getHistory = query({
-  handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    
-    // Return an empty state safely if the auth token is still loading
-    if (!identity) {
+  args: {
+    userId: v.optional(v.string()), // Accept userId from frontend query
+  },
+  handler: async (ctx, args) => {
+    if (!args.userId) {
       return []; 
     }
-    
-    const userId = identity.subject;
 
     return await ctx.db
       .query("sessions")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .order("desc")
       .collect();
   },

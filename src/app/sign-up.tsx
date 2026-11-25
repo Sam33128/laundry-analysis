@@ -1,5 +1,5 @@
 import { useSignUp } from '@clerk/expo';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
 
@@ -55,9 +55,7 @@ export default function SignUpScreen() {
       }
 
       if (signUp.status === 'complete') {
-        await signUp.finalize({
-          navigate: ({ decorateUrl }) => router.replace(decorateUrl('/') as Href),
-        });
+        router.replace('/');
       } else {
         Alert.alert(
           "Missing Requirements", 
@@ -151,4 +149,4 @@ const styles = StyleSheet.create({
   linkButton: { marginTop: 16, alignItems: 'center' },
   linkText: { color: '#9ca3af', fontSize: 13 },
   linkBold: { color: '#3b82f6', fontWeight: '600' },
-});
+}); 

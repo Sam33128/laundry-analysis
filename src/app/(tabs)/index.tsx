@@ -1,16 +1,15 @@
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { useState, useEffect } from 'react';
+import { useUser, useAuth } from '@clerk/expo';
 
-// Upgraded timer to handle hours, minutes, and seconds properly
 function CountdownTimer({ startTime, estimatedMinutes }: { startTime: number, estimatedMinutes: number }) {
   const [timeLeft, setTimeLeft] = useState("Calculating...");
 
   useEffect(() => {
-    // targetTime = when the session started + the minutes converted to milliseconds
     const targetTime = startTime + (estimatedMinutes * 60 * 1000);
     
     const updateTimer = () => {
@@ -22,7 +21,6 @@ function CountdownTimer({ startTime, estimatedMinutes }: { startTime: number, es
         return;
       }
 
-      // Calculate Hours, Minutes, and Seconds correctly
       const hours = Math.floor(difference / (1000 * 60 * 60));
       const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((difference % (1000 * 60)) / 1000);
@@ -44,8 +42,26 @@ function CountdownTimer({ startTime, estimatedMinutes }: { startTime: number, es
 
 export default function HomeScreen() {
   const router = useRouter();
-  const allSessions = useQuery(api.sessions.getHistory);
+  const { user } = useUser();
+  const { isLoaded, isSignedIn } = useAuth(); // We added useAuth to check login status
 
+  const allSessions = useQuery(api.sessions.getHistory, user?.id ? { userId: user.id } : "skip");
+
+  // 1. Wait for Clerk to load
+  if (!isLoaded) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#3b82f6" />
+      </View>
+    );
+  }
+
+  // 2. If not signed in, force them to the login screen!
+  if (!isSignedIn) {
+    return <Redirect href="/login" />;
+  }
+
+  // 3. Wait for Convex data to load
   if (allSessions === undefined) {
     return (
       <View style={styles.center}>
@@ -54,7 +70,6 @@ export default function HomeScreen() {
     );
   }
 
-  // Filter robustly: Show it if the backend explicitly says it's active
   const activeSessions = allSessions.filter(session => session.status === 'active');
 
   return (
@@ -109,4 +124,4 @@ const styles = StyleSheet.create({
   timerText: { color: '#fff', fontSize: 24, fontWeight: '700', marginBottom: 8 },
   detailText: { color: '#64748b', fontSize: 14 },
   fab: { position: 'absolute', bottom: 30, right: 30, backgroundColor: '#3b82f6', width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', elevation: 5, shadowColor: '#3b82f6', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8 },
-});
+}); 

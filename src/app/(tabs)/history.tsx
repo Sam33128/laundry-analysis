@@ -2,8 +2,11 @@ import { View, Text, StyleSheet, FlatList, Image, ActivityIndicator } from 'reac
 import { useQuery } from 'convex/react';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../../convex/_generated/api';
+import { useUser } from '@clerk/expo';
+
 export default function HistoryScreen() {
-  const sessions = useQuery(api.sessions.getHistory);
+  const { user } = useUser();
+  const sessions = useQuery(api.sessions.getHistory, user?.id ? { userId: user.id } : "skip");
 
   if (sessions === undefined) {
     return (
@@ -71,4 +74,4 @@ const styles = StyleSheet.create({
   timeText: { color: '#34d399', fontSize: 13, fontWeight: '700', marginLeft: 4 },
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 },
   emptyText: { color: '#64748b', marginTop: 12, fontSize: 16 },
-});
+}); 
