@@ -9,6 +9,7 @@ import {
   Animated,
   ActivityIndicator,
 } from "react-native";
+import { analyzeLaundryWithMirage, releaseMirageModel } from "../services/mirageDetector";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from "expo-image-manipulator";
@@ -59,6 +60,7 @@ export default function UploadModal() {
   const [loading, setLoading] = useState(false);
   const [moisture, setMoisture] = useState("");
   const [factIndex, setFactIndex] = useState(0);
+  const DETECTION_ENGINE: "mirage" | "cloud" = "mirage";
 
   const pulseAnim = useRef(new Animated.Value(0.3)).current;
 
